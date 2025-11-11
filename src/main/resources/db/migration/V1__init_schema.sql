@@ -1,0 +1,39 @@
+-- Flyway initial schema: users, roles, user_roles, refresh_tokens
+
+CREATE TABLE IF NOT EXISTS role (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS "user" (
+  id BIGSERIAL PRIMARY KEY,
+  username VARCHAR(100) NOT NULL UNIQUE,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  enabled BOOLEAN DEFAULT TRUE,
+  account_non_locked BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_roles (
+  user_id BIGINT NOT NULL,
+  role_id BIGINT NOT NULL,
+  PRIMARY KEY (user_id, role_id),
+  CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES "user"(id) ON DELETE CASCADE,
+  CONSTRAINT fk_role FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS refresh_token (
+  id BIGSERIAL PRIMARY KEY,
+  token VARCHAR(500) NOT NULL UNIQUE,
+  user_id BIGINT NOT NULL,
+  expiry_date TIMESTAMP NOT NULL,
+  revoked BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT now(),
+  CONSTRAINT fk_rt_user FOREIGN KEY (user_id) REFERENCES "user"(id) ON DELETE CASCADE
+);
+
+-- Initial roles
+INSERT INTO role (name) VALUES ('ROLE_USER') ON CONFLICT DO NOTHING;
+INSERT INTO role (name) VALUES ('ROLE_ADMIN') ON CONFLICT DO NOTHING;
+INSERT INTO role (name) VALUES ('ROLE_MANAGER') ON CONFLICT DO NOTHING;

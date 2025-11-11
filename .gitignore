@@ -1,0 +1,71 @@
+### Maven / Java
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Package Files #
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+### IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+### Eclipse
+.classpath
+.project
+.settings/
+
+### IntelliJ
+out/
+
+### NetBeans
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+*.nb-gradle/
+
+### Logs
+logs/
+*.log
+*.log.*
+
+### OS files
+.DS_Store
+Thumbs.db
+
+### Environment
+.env
+.env.*
+
+### Docker
+docker-compose.override.yml
+*.log
+
+### Maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+### Temporary
+tmp/
+temp/
+*.tmp
+
+### Generated sources
+target/generated-sources/
+target/generated-test-sources/
+
+### Testcontainers reusable resources
+.testcontainers/
