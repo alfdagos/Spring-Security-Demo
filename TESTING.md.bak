@@ -1,5 +1,16 @@
 # TESTING
 
+Questo documento descrive la strategia di testing del progetto, come eseguire i test
+in locale (unit e integrazione), come abilitare i test d'integrazione basati su
+Testcontainers/Postgres, e come risolvere i problemi più comuni.
+
+## Indice
+- Scopo e contesto
+- Tipi di test presenti
+- Eseguire i test unitari (veloce)
+- Eseguire i test d'integrazione (Testcontainers)
+# TESTING
+
 This document describes the testing strategy for the project, how to run tests
 locally (unit and integration), how to enable Testcontainers/Postgres-based
 integration tests, and common troubleshooting steps.
@@ -99,6 +110,46 @@ mvn -DskipTests=false clean verify
 
 - `JWT_SECRET` / `jwt.secret`: the HMAC key used in tests must be at least 32 bytes
   (for HS256). A long default value is present in `application.yml` for local testing.
+  In production, provide the key via environment variables or a secret manager.
+- `SPRING_PROFILES_ACTIVE`: activates a profile (`dev`, `test`, `prod`)
+- DB URL / credentials (if not using Testcontainers)
+
+## Troubleshooting: common issues and fixes
+
+- WeakKeyException (JJWT): if the app fails at startup with
+  "The specified key byte array is 128 bits which is not secure enough...",
+  configure a longer JWT key (>32 bytes) using `JWT_SECRET` or in `application.yml`.
+- Flyway / DB connection refused: integration tests and Flyway migrations require
+  DB access. If running without Docker/Testcontainers, ensure Postgres is listening
+  on the correct port (e.g. 5433 for the test profile) or use
+  `docker compose up -d postgres`.
+- Testcontainers not starting: ensure Docker Desktop is running and the Testcontainers
+  version is compatible with your Docker installation.
+- Tests expecting `ROLE_USER`: some registration flows expect the `ROLE_USER` role
+  to exist in the DB (the initial Flyway script inserts roles).
+
+## Notes for CI (GitHub Actions)
+
+The repository CI pipeline runs Maven `clean verify` and can be extended to run
+integration tests with Testcontainers (requires a runner that supports Docker).
+Alternatively, use hosted Postgres services for CI jobs.
+
+## Contact and reference
+
+For environment-specific issues, include Maven logs (`-e` or `-X`) and Docker output
+when opening an issue or reporting a failing test. See `ARCHITECTURE.md` for more
+context about the authentication flow and design choices useful for debugging.
+
+## Quick commands
+
+- Run all tests: `mvn test`
+- Full verification: `mvn -DskipTests=false clean verify`
+
+## Testcontainers and coverage
+
+- Integration tests start a PostgreSQL container and use the `test` profile.
+- JaCoCo is configured; CI can be set to fail the job if coverage drops below a defined threshold.
+
   In production, provide the key via environment variables or a secret manager.
 - `SPRING_PROFILES_ACTIVE`: activates a profile (`dev`, `test`, `prod`)
 - DB URL / credentials (if not using Testcontainers)

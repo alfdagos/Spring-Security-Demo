@@ -1,85 +1,76 @@
 # ARCHITECTURE
 
-Questo documento descrive l'architettura a livelli usata nel progetto.
+This document describes the layered architecture used in the project and the
+main design choices related to authentication and persistence.
 
+## Overview
 
-Consigli di sicurezza
+The application follows a classic layered architecture:
 
-# ARCHITECTURE
+- Controller (web layer): exposes REST endpoints and performs basic input
+  validation (Bean Validation). It contains minimal business logic.
+- Service (business layer): contains application logic, transaction boundaries
+  (`@Transactional`) and orchestration of repositories and external components
+  (caches, messaging, etc.).
+- Repository (data access): interfaces with JPA/Hibernate and the PostgreSQL database.
+- Domain (model): JPA entities (`User`, `Role`, `RefreshToken`) and DTOs used by the API.
 
-Questo documento spiega l'architettura dell'applicazione, le scelte principali e il
-flusso di autenticazione. È pensato per dare contesto a chi vuole estendere o
-manutenere il progetto.
+MapStruct is used for declarative DTO <-> Entity mapping to reduce boilerplate and
+keep the API representation separate from the persistence model.
 
-## Panoramica a livelli
+## Authentication flow (JWT + Refresh)
 
-L'app è organizzata secondo un'architettura a livelli classica:
+1. Registration (`/api/auth/register`): a new user is created with the `ROLE_USER` role.
+   The initial Flyway migration inserts the base roles into the `role` table.
+2. Login (`/api/auth/login`): if credentials are valid, the server issues:
+   - A short-lived JWT access token (e.g. 15 minutes) containing `sub` and `roles` claims.
+   - A refresh token (UUID) stored in the `refresh_token` table with an expiry date.
+3. Accessing protected resources: the client sends the access token in the
+   `Authorization: Bearer <token>` header. The `JwtAuthenticationFilter` validates
+   the token and populates the `SecurityContext` with the user and roles.
+4. Refresh exchange (`/api/auth/refresh`): if the refresh token is valid and not
+   revoked, a new access token is issued. The refresh token remains persistent until
+   expiry or explicit revocation.
+5. Logout (`/api/auth/logout`): the refresh token is marked as revoked in the DB so
+   it cannot be reused.
 
-- Controller (web layer): espone gli endpoint REST e si occupa di validazione base
-	degli input (Bean Validation). Non contiene logica di business complessa.
-- Service (business layer): ospita la logica applicativa, transazioni (`@Transactional`)
-	e orchestrazione di repository e componenti esterni (cache, messaging, ecc.).
-- Repository (data access): interfaccia con JPA/Hibernate e il database PostgreSQL.
-- Domain (model): entità JPA (`User`, `Role`, `RefreshToken`) e DTO per le API.
+This approach keeps the API stateless (authentication via JWT) while allowing server-side
+session revocation using persistent refresh tokens.
 
-MapStruct viene usato per mappare in modo dichiarativo DTO <-> Entity; questo
-riduce boilerplate e mantiene chiara la separazione tra rappresentazione API e
-modello di persistenza.
+## Database schema (high level)
 
-## Flusso di autenticazione (JWT + Refresh)
+- `role` — list of roles (ROLE_USER, ROLE_ADMIN, ...)
+- `user` — user entity with username, email, password (BCrypt) and many-to-many
+  relationship with `role`
+- `refresh_token` — refresh tokens referencing `user`, with expiry and a `revoked` flag
 
-1. Registrazione (`/api/auth/register`): l'utente viene creato con `ROLE_USER`.
-	 Lo script Flyway iniziale inserisce i ruoli di base nella tabella `role`.
-2. Login (`/api/auth/login`): se le credenziali sono valide, il server rilascia:
-	 - Un access token JWT a breve durata (es. 15 minuti) contenente claim `sub` e `roles`.
-	 - Un refresh token (stringa UUID) memorizzato in tabella `refresh_token` con expiry.
-3. Accesso a risorse protette: il client invia l'access token via header
-	 `Authorization: Bearer <token>`. Un filtro (`JwtAuthenticationFilter`) valida
-	 il token e popola il `SecurityContext` con l'utente/ruoli.
-4. Scambio refresh (`/api/auth/refresh`): se il refresh token è valido e non revocato,
-	 viene emesso un nuovo access token; il refresh token è persistente fino alla sua
-	 scadenza o revoca.
-5. Logout (`/api/auth/logout`): il refresh token viene marcato come revocato nel DB
-	 così non può essere riutilizzato.
-
-Questa strategia mantiene le API stateless (autenticazione via JWT) ma consente
-di revocare sessioni lato server usando i refresh token persistenti.
-
-## Schema DB (high level)
-
-- `role` — lista dei ruoli (ROLE_USER, ROLE_ADMIN, ...)
-- `user` — utente con username, email, password (BCrypt) e relazione many-to-many con `role`
-- `refresh_token` — token di refresh con riferimento a `user`, expiry e flag `revoked`
-
-Le migrazioni sono gestite con Flyway (cartella `src/main/resources/db/migration`).
+Migrations are managed by Flyway (folder: `src/main/resources/db/migration`).
 
 ## Caching
 
-Il livello di servizio usa Caffeine per cache in-memory (configurato nel `application.yml`).
-Per carichi distribuiti si può sostituire con Redis o altri store condivisi.
+The service layer uses Caffeine for in-memory caching (configured in `application.yml`).
+For distributed workloads, replace it with Redis or another shared store.
 
-## Scelte di sicurezza e trade-offs
+## Security choices and trade-offs
 
-- Token breve durata vs. refresh persistente: diminuisce la finestra d'attacco per
-	access token compromessi ma richiede storage e gestione dei refresh token.
-- MapStruct + DTO: evita leakage di campi sensibili ma richiede attenzione nelle mappature
-	(test e revisione delle mappature).
-- BCrypt per password hashing: buona scelta out-of-the-box per la maggior parte dei casi.
+- Short-lived access tokens + persistent refresh tokens: reduces the risk window
+  for compromised access tokens but requires storage and management of refresh tokens.
+- MapStruct + DTOs: prevents leaking sensitive fields but requires careful mapping
+  tests and reviews.
+- BCrypt for password hashing: a sensible default for most use cases.
 
 ## Test strategy
 
-- Unit tests per servizi e componenti (Mockito)
-- Integration tests E2E con Testcontainers per verificare il flusso autentico (DB + Flyway)
-- CI: eseguire `mvn clean verify`; i job che eseguono IT devono avere Docker disponibile.
+- Unit tests for services and components (Mockito)
+- End-to-end integration tests with Testcontainers to validate the full flow (DB + Flyway)
+- CI: run `mvn clean verify`; jobs that execute integration tests must have Docker available.
 
-## Operazioni di deployment e note operative
+## Deployment and operational notes
 
-- Assicurarsi che `JWT_SECRET` sia gestito in modo sicuro (secret manager) e abbia
-	lunghezza adeguata.
-- Monitorare rotte e metriche via Actuator e integrare alerting per rate-limit /
-	tentativi di login sospetti.
+- Ensure that `JWT_SECRET` is managed securely (secret manager) and has sufficient length.
+- Monitor routes and metrics via Actuator and add alerts for suspicious login activity or rate limits.
 
-## Ulteriori riferimenti
+## Further reading
 
-Per implementazioni avanzate (rotazione chiavi, OAuth2/OIDC, Single Sign-On) usare
-provider dedicati e integrare con un Identity Provider esterno.
+For advanced scenarios (key rotation, OAuth2/OIDC, Single Sign-On) integrate a
+dedicated identity provider or external Identity Provider.

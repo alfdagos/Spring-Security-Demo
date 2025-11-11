@@ -1,58 +1,58 @@
 # Spring Security Demo
 
-Repository demo che offre una base completa per servizi REST protetti con Spring Boot,
-Spring Security e JWT. Il progetto contiene implementazioni e convenzioni utilizzabili
-in un ambiente reale: autenticazione stateless con JWT, refresh token persistente,
-ruoli, Flyway, caching (Caffeine), OpenAPI e test automatizzati.
+A demo repository providing a solid starting point for REST services secured with
+Spring Boot, Spring Security and JWT. The project includes production-oriented
+conventions and implementations: stateless JWT authentication, persistent refresh
+tokens, roles, Flyway migrations, in-memory caching (Caffeine), OpenAPI and automated tests.
 
-Caratteristiche principali
+Main features
 - Java 21, Spring Boot 3.5.x
-- Autenticazione JWT (access tokens) + refresh tokens persistenti
+- JWT authentication (short-lived access tokens) + persistent refresh tokens
 - Spring Data JPA + PostgreSQL + Flyway migrations
-- MapStruct per mapping DTO <-> Entity
-- Caffeine cache per layer di servizio
-- Actuator e OpenAPI (Swagger UI)
-- Dockerfile + docker-compose per sviluppo locale
-- Test: JUnit 5, Mockito, Testcontainers (Postgres) per integrazione
+- MapStruct for DTO <-> Entity mapping
+- Caffeine in-memory cache for service layer
+- Actuator and OpenAPI (Swagger UI)
+- Dockerfile + docker-compose for local development
+- Tests: JUnit 5, Mockito, Testcontainers (Postgres) for integration tests
 
-Prerequisiti
+Prerequisites
 - JDK 21
 - Maven 3.8+
-- Docker (consigliato per test d'integrazione e sviluppo)
+- Docker (recommended for integration tests and local development)
 
-Quick start (sviluppo locale)
+Quick start (local development)
 
-1) Build locale (senza creare immagine Docker):
+1) Build locally (without creating a Docker image):
 
 ```pwsh
 cd 'C:/Git/PROGETTI_ALF/VARI/Spring-Security-Demo'
 mvn -DskipTests=false clean package
 ```
 
-2) Avviare stack di sviluppo con Docker Compose (Postgres):
+2) Start the development stack with Docker Compose (Postgres):
 
 ```pwsh
 docker compose up -d --build postgres
-# Attendere che Postgres sia pronto, poi avviare l'app (se si vuole via Dockerfile o eseguire localmente)
+# Wait for Postgres to be ready, then start the app (via Dockerfile or run locally)
 ```
 
-3) Eseguire l'app localmente (usando profilo dev):
+3) Run the app locally (use the `dev` profile):
 
 ```pwsh
 mvn -Dspring-boot.run.profiles=dev spring-boot:run
 ```
 
-Endpoints principali
+Main endpoints
 
-- POST /api/auth/register — registrazione utente
-- POST /api/auth/login — autenticazione e rilascio access+refresh token
-- POST /api/auth/refresh — scambio refresh -> nuovo access token
-- POST /api/auth/logout — revoca refresh token
-- GET /api/users/me — informazioni utente autenticato
+- POST /api/auth/register — register a new user
+- POST /api/auth/login — authenticate and receive access + refresh tokens
+- POST /api/auth/refresh — exchange a refresh token for a new access token
+- POST /api/auth/logout — revoke a refresh token
+- GET /api/users/me — current authenticated user information
 
-Esempi (curl)
+Examples (curl)
 
-Registrazione:
+Register:
 
 ```pwsh
 curl -X POST http://localhost:8080/api/auth/register -H "Content-Type: application/json" `
@@ -68,28 +68,25 @@ curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/
 
 API docs
 
-Swagger UI / OpenAPI è esposto (in dev) su `/swagger-ui.html` o `/swagger-ui/index.html`.
+Swagger UI / OpenAPI is exposed (in `dev`) at `/swagger-ui.html` or `/swagger-ui/index.html`.
 
-Configurazione e segreti
+Configuration and secrets
 
-- `JWT_SECRET`: la chiave HMAC per i token; NON commitare nel repo. Deve essere >= 32 byte
-   per l'algoritmo HS256.
-- Database credentials e URL: impostare tramite variabili d'ambiente o usare il
-   `docker-compose.yml` fornito.
+- `JWT_SECRET`: HMAC signing key for JWTs; DO NOT commit to the repository. It must be at least 32 bytes for HS256.
+- Database credentials and URL: provide via environment variables or use the provided `docker-compose.yml`.
 
 Testing
 
-- Eseguire tutti i test locali (unit): `mvn -DskipTests=false test`
-- Eseguire la verifica completa (unit + integrazione se abilitati): `mvn -DskipTests=false clean verify`
-- Per i dettagli sui test e Testcontainers, vedere `TESTING.md`.
+- Run unit tests locally: `mvn -DskipTests=false test`
+- Run full verification (unit + integration if enabled): `mvn -DskipTests=false clean verify`
+- For details about tests and Testcontainers, see `TESTING.md`.
 
-Note produzione
+Production notes
 
-- Cambiare `jwt.secret` con una chiave sicura e gestita (secret manager / KeyVault)
-- Abilitare HTTPS e limitare CORS in produzione
-- Monitorare le rotte sensibili tramite Actuator/metrics
+- Replace `jwt.secret` with a securely managed key (secret manager / KeyVault)
+- Enable HTTPS and restrict CORS in production
+- Monitor sensitive endpoints using Actuator/metrics
 
-Contribuire
+Contributing
 
-Aprire issue o pull request. Seguire le regole del progetto per le modifiche
-al database (aggiungere migration Flyway) e per i test automatici.
+Open issues or pull requests. Follow project rules for database changes (add Flyway migrations) and automated tests.
